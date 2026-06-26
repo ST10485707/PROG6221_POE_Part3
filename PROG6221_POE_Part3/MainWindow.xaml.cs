@@ -3,7 +3,7 @@
 // Student: ST10485707
 // Description:
 //   This file handles everything the user sees and interacts with.
-//   It manages the chat display, user input, and calls the TaskManager
+//   It manages the chat display, user input, and calls the DatabaseHelper
 //   when tasks need to be added, viewed, or managed.
 //   It also handles the Quiz and Activity Log features.
 // ============================================================
@@ -19,7 +19,13 @@ namespace PROG6221_POE_Part3
     {
         // ========== CLASS VARIABLES ==========
 
+        // DatabaseHelper handles all database operations (add, view, complete, delete tasks)
+        private DatabaseHelper db = new DatabaseHelper();
+
+        // TaskManager handles in-memory operations (quiz, activity log)
         private TaskManager taskManager = new TaskManager();
+
+        // Stores the user's name for personalisation
         private string userName = "";
 
         // Quiz-related variables
@@ -139,6 +145,7 @@ namespace PROG6221_POE_Part3
         // ==========================================================
         private void ProcessUserInput()
         {
+            // Get the user's message and remove any leading/trailing spaces
             string userMessage = UserInput.Text.Trim();
 
             // ========== VALIDATION ==========
@@ -150,6 +157,7 @@ namespace PROG6221_POE_Part3
                 return;
             }
 
+            // Display the user's message in the chat (in Magenta)
             AddToChat("You", userMessage, "Magenta");
 
             // ========== GET USER'S NAME ==========
@@ -209,13 +217,19 @@ namespace PROG6221_POE_Part3
             string lowerMsg = userMessage.ToLower();
 
             // --- ADD TASK ---
+            // Format: "add task: Review privacy settings"
             if (lowerMsg.StartsWith("add task") || lowerMsg.Contains("add a task"))
             {
+                // Extract the task name (everything after "task")
                 string taskName = userMessage.Substring(userMessage.IndexOf("task") + 4).Trim();
+
                 if (!string.IsNullOrEmpty(taskName))
                 {
-                    taskManager.AddTask(taskName, "No description", "");
-                    AddToChat("Bot", $"✅ Task '{taskName}' added successfully!", "Green");
+                    // Add task to MySQL database
+                    db.AddTask(taskName, "No description", "");
+                    // Log the action
+                    taskManager.AddToLog($"Task added: '{taskName}'");
+                    AddToChat("Bot", $"✅ Task '{taskName}' added successfully to database!", "Green");
                 }
                 else
                 {
@@ -226,14 +240,16 @@ namespace PROG6221_POE_Part3
             // --- VIEW TASKS ---
             else if (lowerMsg.Contains("view tasks") || lowerMsg.Contains("show tasks") || lowerMsg.Contains("tasks"))
             {
-                var tasks = taskManager.GetTasks();
+                // Get tasks from MySQL database
+                var tasks = db.GetTasks();
+
                 if (tasks.Count == 0)
                 {
                     AddToChat("Bot", "📋 You have no tasks yet. Add one by typing: 'add task: Your task name'", "Green");
                 }
                 else
                 {
-                    AddToChat("Bot", $"📋 You have {tasks.Count} tasks:", "Green");
+                    AddToChat("Bot", $"📋 You have {tasks.Count} tasks (saved in MySQL database):", "Green");
                     foreach (var task in tasks)
                     {
                         AddToChat("Bot", $"  • {task.ToString()}", "Green");
@@ -248,6 +264,9 @@ namespace PROG6221_POE_Part3
                 currentQuestionIndex = 0;
                 quizScore = 0;
                 quizActive = true;
+
+                // Log the quiz start
+                taskManager.AddToLog("Quiz started");
 
                 AddToChat("Bot", "🎯 Welcome to the Cybersecurity Quiz!", "Green");
                 AddToChat("Bot", $"There are {quizQuestions.Count} questions. Type the number of your answer (1-4).", "Green");
@@ -279,6 +298,7 @@ namespace PROG6221_POE_Part3
                 AddToChat("Bot", $"I'm here to help, {userName}! Try: 'add task', 'view tasks', 'start quiz', or 'activity log'", "Green");
             }
 
+            // Clear the input box and refocus for the next message
             UserInput.Clear();
             UserInput.Focus();
         }
@@ -287,18 +307,21 @@ namespace PROG6221_POE_Part3
         // BUTTON CLICK HANDLERS
         // ==========================================================
 
+        // View Tasks button - fills "view tasks" into the text box
         private void ViewTasksButton_Click(object sender, RoutedEventArgs e)
         {
             UserInput.Text = "view tasks";
             ProcessUserInput();
         }
 
+        // Start Quiz button - fills "start quiz" into the text box
         private void StartQuizButton_Click(object sender, RoutedEventArgs e)
         {
             UserInput.Text = "start quiz";
             ProcessUserInput();
         }
 
+        // Activity Log button - fills "activity log" into the text box
         private void ShowLogButton_Click(object sender, RoutedEventArgs e)
         {
             UserInput.Text = "activity log";

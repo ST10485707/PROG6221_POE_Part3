@@ -183,9 +183,25 @@ namespace PROG6221_POE_Part3
 
             // ========== QUIZ MODE ==========
             // If the quiz is active, check if the user typed a number (1-4)
+            // BUT allow commands like "activity log" to work even during quiz
             if (quizActive && currentQuestionIndex < quizQuestions.Count)
             {
-                if (int.TryParse(userMessage, out int answer) && answer >= 1 && answer <= 4)
+                // Check if user typed a valid command instead of a number
+                string lowerCheck = userMessage.ToLower();
+                bool isCommand = lowerCheck.Contains("activity log") ||
+                                 lowerCheck.Contains("log") ||
+                                 lowerCheck.Contains("view tasks") ||
+                                 lowerCheck.Contains("add task") ||
+                                 lowerCheck.Contains("exit") ||
+                                 lowerCheck.Contains("start quiz") ||
+                                 lowerCheck.Contains("tasks");
+
+                if (isCommand)
+                {
+                    // Let the command be processed normally - skip quiz mode
+                    // (don't return, let the code flow to command processing)
+                }
+                else if (int.TryParse(userMessage, out int answer) && answer >= 1 && answer <= 4)
                 {
                     var q = quizQuestions[currentQuestionIndex];
                     if (answer - 1 == q.CorrectAnswerIndex)
@@ -206,7 +222,7 @@ namespace PROG6221_POE_Part3
                 }
                 else
                 {
-                    AddToChat("Bot", "Please type a number between 1 and 4 for your answer.", "Yellow");
+                    AddToChat("Bot", "Please type a number between 1 and 4 for your answer, or type 'exit' to quit the quiz.", "Yellow");
                     UserInput.Clear();
                     UserInput.Focus();
                     return;

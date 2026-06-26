@@ -5,6 +5,7 @@
 //   This file handles everything the user sees and interacts with.
 //   It manages the chat display, user input, and calls the TaskManager
 //   when tasks need to be added, viewed, or managed.
+//   It also handles the Quiz and Activity Log features.
 // ============================================================
 
 using System;
@@ -14,31 +15,21 @@ using System.Windows.Input;
 
 namespace PROG6221_POE_Part3
 {
-    // ==========================================================
-    // MAIN WINDOW CLASS
-    // ==========================================================
-    // This is the "brain" of the user interface.
-    // It connects the visual design (MainWindow.xaml) with the
-    // task management logic (TaskManager.cs).
-    // ==========================================================
     public partial class MainWindow : Window
     {
         // ========== CLASS VARIABLES ==========
 
-        // This creates an instance of TaskManager so we can use it
-        // to add, view, complete, and delete tasks.
         private TaskManager taskManager = new TaskManager();
-
-        // This stores the user's name so we can personalise responses
-        // throughout the conversation.
         private string userName = "";
+
+        // Quiz-related variables
+        private List<QuizQuestion> quizQuestions = new List<QuizQuestion>();
+        private int currentQuestionIndex = 0;
+        private int quizScore = 0;
+        private bool quizActive = false;
 
         // ==========================================================
         // CONSTRUCTOR
-        // ==========================================================
-        // Runs when the window first opens.
-        // InitializeComponent() loads the XAML design.
-        // AddWelcomeMessage() displays the bot's first messages.
         // ==========================================================
         public MainWindow()
         {
@@ -48,9 +39,6 @@ namespace PROG6221_POE_Part3
 
         // ==========================================================
         // WELCOME MESSAGE
-        // ==========================================================
-        // Shows the bot's opening messages when the app starts.
-        // It tells the user what the chatbot can do and asks for their name.
         // ==========================================================
         private void AddWelcomeMessage()
         {
@@ -65,34 +53,21 @@ namespace PROG6221_POE_Part3
         // ==========================================================
         // ADD MESSAGE TO CHAT
         // ==========================================================
-        // This is a helper method that adds a message to the chat display.
-        // Parameters:
-        //   - sender: Who is speaking ("Bot", "You", or "System")
-        //   - message: The text to display
-        //   - color: The text color (Green for bot, Magenta for user, etc.)
-        // ==========================================================
         private void AddToChat(string sender, string message, string color)
         {
-            // Format the message with brackets around the sender name
-            // Example: "[Bot] Hello!"
             string formattedMessage = $"[{sender}] {message}";
 
-            // Add the message to the chat display list box
             ChatDisplay.Items.Add(new ListBoxItem
             {
                 Content = formattedMessage,
                 Foreground = GetBrush(color)
             });
 
-            // Auto-scroll to the bottom to show the newest message
             ChatDisplay.ScrollIntoView(ChatDisplay.Items[ChatDisplay.Items.Count - 1]);
         }
 
         // ==========================================================
         // COLOR HELPER
-        // ==========================================================
-        // This converts a color name (e.g., "Green") to a WPF Brush object.
-        // This allows dynamic coloring of chat messages.
         // ==========================================================
         private System.Windows.Media.Brush GetBrush(string color)
         {
@@ -109,9 +84,6 @@ namespace PROG6221_POE_Part3
         // ==========================================================
         // SEND BUTTON CLICK
         // ==========================================================
-        // This runs when the user clicks the "Send" button.
-        // It calls ProcessUserInput() to handle the user's message.
-        // ==========================================================
         private void SendButton_Click(object sender, RoutedEventArgs e)
         {
             ProcessUserInput();
@@ -119,9 +91,6 @@ namespace PROG6221_POE_Part3
 
         // ==========================================================
         // ENTER KEY HANDLER
-        // ==========================================================
-        // This allows the user to press Enter instead of clicking Send.
-        // This creates a more natural chat experience.
         // ==========================================================
         private void UserInput_KeyDown(object sender, KeyEventArgs e)
         {
@@ -132,20 +101,47 @@ namespace PROG6221_POE_Part3
         }
 
         // ==========================================================
-        // MAIN PROCESSING METHOD
+        // DISPLAY QUIZ QUESTION
         // ==========================================================
-        // This is the core method that handles all user input.
-        // It validates the input, captures the user's name,
-        // and processes commands like "add task" and "view tasks".
+        private void DisplayCurrentQuestion()
+        {
+            if (!quizActive || currentQuestionIndex >= quizQuestions.Count)
+            {
+                quizActive = false;
+                AddToChat("Bot", $"🎯 Quiz complete! Your score: {quizScore}/{quizQuestions.Count}", "Green");
+                AddToChat("Bot", GetQuizFeedback(quizScore, quizQuestions.Count), "Green");
+                return;
+            }
+
+            var q = quizQuestions[currentQuestionIndex];
+            AddToChat("Bot", $"Question {currentQuestionIndex + 1}: {q.Question}", "Green");
+
+            for (int i = 0; i < q.Options.Count; i++)
+            {
+                AddToChat("Bot", $"  {i + 1}. {q.Options[i]}", "Green");
+            }
+        }
+
+        // ==========================================================
+        // QUIZ FEEDBACK
+        // ==========================================================
+        private string GetQuizFeedback(int score, int total)
+        {
+            double percentage = (double)score / total * 100;
+            if (percentage >= 80) return "🌟 Excellent! You're a cybersecurity pro!";
+            else if (percentage >= 60) return "👍 Good job! Keep learning to improve your score!";
+            else if (percentage >= 40) return "📚 Nice try! Review the topics and try again!";
+            else return "💪 Don't give up! Cybersecurity is important - try the quiz again!";
+        }
+
+        // ==========================================================
+        // MAIN PROCESSING METHOD
         // ==========================================================
         private void ProcessUserInput()
         {
-            // Get the user's message and remove any leading/trailing spaces
             string userMessage = UserInput.Text.Trim();
 
             // ========== VALIDATION ==========
-            // If the user typed nothing, ask them to type something.
-            // This prevents the app from crashing or responding to empty messages.
             if (string.IsNullOrWhiteSpace(userMessage))
             {
                 AddToChat("System", "Please type something!", "Yellow");
@@ -154,12 +150,9 @@ namespace PROG6221_POE_Part3
                 return;
             }
 
-            // Display the user's message in the chat (in Magenta)
             AddToChat("You", userMessage, "Magenta");
 
             // ========== GET USER'S NAME ==========
-            // If we don't have the user's name yet, capture it now.
-            // This runs only the FIRST time the user types something.
             if (string.IsNullOrEmpty(userName))
             {
                 userName = userMessage;
@@ -168,95 +161,124 @@ namespace PROG6221_POE_Part3
                 AddToChat("Bot", "Type 'exit' to quit.", "Green");
                 UserInput.Clear();
                 UserInput.Focus();
-                return; // Exit early so we don't process this as a command
+                return;
             }
 
             // ========== EXIT COMMAND ==========
-            // Allow the user to end the conversation gracefully.
             if (userMessage.ToLower() == "exit")
             {
                 AddToChat("Bot", $"Goodbye, {userName}! Stay safe online! 😊", "Green");
-                // Disable input controls so the user can't type after exiting
                 UserInput.IsEnabled = false;
                 SendButton.IsEnabled = false;
                 return;
             }
 
+            // ========== QUIZ MODE ==========
+            // If the quiz is active, check if the user typed a number (1-4)
+            if (quizActive && currentQuestionIndex < quizQuestions.Count)
+            {
+                if (int.TryParse(userMessage, out int answer) && answer >= 1 && answer <= 4)
+                {
+                    var q = quizQuestions[currentQuestionIndex];
+                    if (answer - 1 == q.CorrectAnswerIndex)
+                    {
+                        quizScore++;
+                        AddToChat("Bot", "✅ Correct! Good job!", "Green");
+                    }
+                    else
+                    {
+                        AddToChat("Bot", $"❌ Sorry, the correct answer was: {q.Options[q.CorrectAnswerIndex]}", "Green");
+                    }
+
+                    currentQuestionIndex++;
+                    DisplayCurrentQuestion();
+                    UserInput.Clear();
+                    UserInput.Focus();
+                    return;
+                }
+                else
+                {
+                    AddToChat("Bot", "Please type a number between 1 and 4 for your answer.", "Yellow");
+                    UserInput.Clear();
+                    UserInput.Focus();
+                    return;
+                }
+            }
+
             // ========== PROCESS COMMANDS ==========
-            // Convert to lowercase for easier keyword matching.
-            // This means "Add Task" and "add task" work the same.
             string lowerMsg = userMessage.ToLower();
 
             // --- ADD TASK ---
-            // Format: "add task: Review privacy settings"
-            // Detects if the message starts with "add task" or contains "add a task".
             if (lowerMsg.StartsWith("add task") || lowerMsg.Contains("add a task"))
             {
-                // Extract the task name (everything after "task")
                 string taskName = userMessage.Substring(userMessage.IndexOf("task") + 4).Trim();
-
-                // Make sure the task name is not empty
                 if (!string.IsNullOrEmpty(taskName))
                 {
-                    // Call TaskManager to add the task to the list
                     taskManager.AddTask(taskName, "No description", "");
                     AddToChat("Bot", $"✅ Task '{taskName}' added successfully!", "Green");
                 }
                 else
                 {
-                    // If the user typed "add task" but didn't give a name
                     AddToChat("Bot", "Please specify the task name. Example: 'add task: Review privacy settings'", "Green");
                 }
             }
 
             // --- VIEW TASKS ---
-            // Detects if the user wants to see their tasks.
             else if (lowerMsg.Contains("view tasks") || lowerMsg.Contains("show tasks") || lowerMsg.Contains("tasks"))
             {
-                // Get the list of tasks from TaskManager
                 var tasks = taskManager.GetTasks();
-
-                // If there are no tasks, let the user know
                 if (tasks.Count == 0)
                 {
                     AddToChat("Bot", "📋 You have no tasks yet. Add one by typing: 'add task: Your task name'", "Green");
                 }
                 else
                 {
-                    // Display all tasks one by one
                     AddToChat("Bot", $"📋 You have {tasks.Count} tasks:", "Green");
                     foreach (var task in tasks)
                     {
-                        // Each task uses its ToString() method for formatting
                         AddToChat("Bot", $"  • {task.ToString()}", "Green");
                     }
                 }
             }
 
             // --- START QUIZ ---
-            // This is a placeholder for the quiz feature (coming next)
             else if (lowerMsg.Contains("start quiz") || lowerMsg.Contains("quiz"))
             {
-                AddToChat("Bot", "🎯 Starting Cybersecurity Quiz!", "Green");
-                AddToChat("Bot", "Quiz feature coming soon! (Will be added in the next step)", "Green");
+                quizQuestions = taskManager.GetQuizQuestions();
+                currentQuestionIndex = 0;
+                quizScore = 0;
+                quizActive = true;
+
+                AddToChat("Bot", "🎯 Welcome to the Cybersecurity Quiz!", "Green");
+                AddToChat("Bot", $"There are {quizQuestions.Count} questions. Type the number of your answer (1-4).", "Green");
+                AddToChat("Bot", $"Let's start! Question 1 of {quizQuestions.Count}:", "Green");
+                DisplayCurrentQuestion();
             }
 
             // --- ACTIVITY LOG ---
-            // This is a placeholder for the activity log feature (coming next)
             else if (lowerMsg.Contains("activity log") || lowerMsg.Contains("log"))
             {
-                AddToChat("Bot", "📜 Activity Log feature coming soon! (Will be added in the next step)", "Green");
+                var log = taskManager.GetActivityLog();
+                if (log.Count == 0)
+                {
+                    AddToChat("Bot", "📜 No activity logged yet. Start using the chatbot to build your log!", "Green");
+                }
+                else
+                {
+                    AddToChat("Bot", "📜 Here's your recent activity:", "Green");
+                    foreach (var entry in log)
+                    {
+                        AddToChat("Bot", $"  • {entry}", "Green");
+                    }
+                }
             }
 
             // --- DEFAULT RESPONSE ---
-            // If the user types something that doesn't match any command
-            // Remind them what they can do.
             else
             {
                 AddToChat("Bot", $"I'm here to help, {userName}! Try: 'add task', 'view tasks', 'start quiz', or 'activity log'", "Green");
             }
 
-            // Clear the input box and refocus for the next message
             UserInput.Clear();
             UserInput.Focus();
         }
@@ -264,25 +286,19 @@ namespace PROG6221_POE_Part3
         // ==========================================================
         // BUTTON CLICK HANDLERS
         // ==========================================================
-        // These buttons automatically type the command for the user.
-        // This makes it easier for users who don't want to type.
-        // ==========================================================
 
-        // View Tasks button - fills "view tasks" into the text box
         private void ViewTasksButton_Click(object sender, RoutedEventArgs e)
         {
             UserInput.Text = "view tasks";
             ProcessUserInput();
         }
 
-        // Start Quiz button - fills "start quiz" into the text box
         private void StartQuizButton_Click(object sender, RoutedEventArgs e)
         {
             UserInput.Text = "start quiz";
             ProcessUserInput();
         }
 
-        // Activity Log button - fills "activity log" into the text box
         private void ShowLogButton_Click(object sender, RoutedEventArgs e)
         {
             UserInput.Text = "activity log";

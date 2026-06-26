@@ -5,7 +5,8 @@
 //   This file handles everything the user sees and interacts with.
 //   It manages the chat display, user input, and calls the DatabaseHelper
 //   when tasks need to be added, viewed, or managed.
-//   It also handles the Quiz and Activity Log features.
+//   It also handles the Quiz, Activity Log, and NLP simulation
+//   (ChatbotLogic) features.
 // ============================================================
 
 using System;
@@ -18,6 +19,9 @@ namespace PROG6221_POE_Part3
     public partial class MainWindow : Window
     {
         // ========== CLASS VARIABLES ==========
+
+        // ChatbotLogic handles NLP simulation and keyword recognition
+        private ChatbotLogic chatbot = new ChatbotLogic();
 
         // DatabaseHelper handles all database operations (add, view, complete, delete tasks)
         private DatabaseHelper db = new DatabaseHelper();
@@ -308,10 +312,19 @@ namespace PROG6221_POE_Part3
                 }
             }
 
-            // --- DEFAULT RESPONSE ---
+            // --- NLP SIMULATION (ChatbotLogic) ---
+            // ========== TASK 3: NLP SIMULATION ==========
+            // If no command matches, use ChatbotLogic for keyword recognition
+            // This handles natural language variations for cybersecurity topics:
+            // - Password, 2FA, authentication
+            // - Scam, fraud, phishing, suspicious links
+            // - Privacy, data breach, social engineering
+            // - Malware, virus, ransomware, safe browsing
             else
             {
-                AddToChat("Bot", $"I'm here to help, {userName}! Try: 'add task', 'view tasks', 'start quiz', or 'activity log'", "Green");
+                // Get response from ChatbotLogic (NLP simulation)
+                string response = chatbot.GetBotResponse(userMessage);
+                AddToChat("Bot", response, "Green");
             }
 
             // Clear the input box and refocus for the next message

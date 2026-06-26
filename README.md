@@ -50,4 +50,4 @@
 
 ## Video Presentation
 
-Link to YouTube video
+Link to YouTube video: https://youtu.be/X410G_YQVyA
